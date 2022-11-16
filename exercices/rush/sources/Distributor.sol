@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.16;
 
 contract Distributor {
  
@@ -10,8 +10,8 @@ contract Distributor {
     }
 
 
-    uint256 public item_quantity = 9;
-    uint256 public item_limit = 15;
+    uint256 public constant item_quantity = 9;
+    uint256 public constant item_limit = 15;
    
     // Faire une fonction capable de donner XX ice_tea a un utilisateur dans son inventaire
  
@@ -22,13 +22,13 @@ contract Distributor {
       struct Item{
      string name;
      uint256 price;
-     uint256 qtyBuy;
+    
     }
-    struct raw{
+    struct Raw{
         uint256 qty;
         Item item;
     }
-    struct customer{
+    struct Customer{
         address addr;
         bool exist;
         uint256 IceTea;
@@ -44,21 +44,21 @@ contract Distributor {
    
     
 
-     mapping(string=> raw) public MappingRaw;
-    mapping(address=> customer) public MappingCustomer;
+     mapping(string=> Raw) public MappingRaw;
+    mapping(address=> Customer) public MappingCustomer;
    
-    function getMappingRaw(string memory _name) public view returns (raw memory) {
+    function getMappingRaw(string memory _name) public view returns (Raw memory) {
     return MappingRaw[_name];
     }
-    function setMappingRaw(string memory _name, raw memory value) public {
+    function setMappingRaw(string memory _name, Raw memory value) public {
         MappingRaw[_name]=value;
     }
 
      //Mapping Customer
-     function getMappingCustomer(address _key) public view returns (customer memory) {
+     function getMappingCustomer(address _key) public view returns (Customer memory) {
     return MappingCustomer[_key];
     }
-      function setMappingCustomer(address _key,customer memory value) public {
+      function setMappingCustomer(address _key,Customer memory value) public {
         MappingCustomer[_key]=value;
     }
       //creation des item
@@ -73,9 +73,8 @@ contract Distributor {
 
 //add item
     function addItem(string memory _name, uint256 _price) public {
-       Item memory it;
-       it.name=_name;
-       it.price=_price;
+       Item memory it=Item(_name, _price);
+      
        //ajoute au tableau un nouvel article avec son prix
        ListItem.push(it);
        //ajoute simultanément au mapping
@@ -99,15 +98,12 @@ contract Distributor {
 
 //add item
     function addRaw(Item memory _article,uint256 _qty) public {
-       raw memory r;
-       r.item=_article;
-       r.qty=_qty;
-      
+       Raw memory r=Raw(_qty,_article);
       setMappingRaw(_article.name,r);
     }
      //recharge item , remplissage automatique 
    function rechargeItem(string memory _articleName) public {
-    raw memory r;
+    Raw memory r;
     r=getMappingRaw(_articleName);
     if(r.qty<=item_quantity)
     {
@@ -116,7 +112,7 @@ contract Distributor {
     MappingRaw[_articleName]=r;
    }
    //recharge item , remplissage automatique 
-   function rechargeItemAuto(string memory _articleName,raw memory r) public {
+   function rechargeItemAuto(string memory _articleName,Raw memory r) public {
   
     if(r.qty<=item_quantity)
     {
@@ -128,7 +124,7 @@ contract Distributor {
     function costItem(string memory _articleName,uint256 _nbItem) public   returns (uint256){
     
     uint256 price;
-     raw memory r;
+     Raw memory r;
     r=getMappingRaw(_articleName);
 
      rechargeItemAuto(_articleName,r);
@@ -142,21 +138,22 @@ contract Distributor {
     uint256 price;
    
     price=costItem(_articleName,_nbItem);
-    raw memory r;
+    Raw memory r;
     r=getMappingRaw(_articleName);
 
  
-    require(r.qty<=item_limit,"Not enought product!!");
+    require(r.qty<item_limit,"Not enought product!!");
     require(msg.value>=price);
-  
+
+
     
    
     r.qty=r.qty-_nbItem;
     MappingRaw[_articleName]=r;
 
-   customer memory cus;
+   Customer memory cus;
    cus=getMappingCustomer(msg.sender);
-   if(cus.exist==false)
+   if(!cus.exist)
    {
     cus.addr=msg.sender;
     if(compareStrings(_articleName,"Ice_Tea"))
@@ -216,7 +213,19 @@ contract Distributor {
     cus.Coca=c;
     setMappingCustomer(msg.sender,cus);
     
+    //rend la monnaiesi il y a
+     withdRawEther(msg.value,price);
    }
+}
+    function withdRawEther(uint256 _sellerMoney,uint256 _price) public {
+        uint256 _amountToReturn;
+        if(_sellerMoney>_price)
+        {
+            _amountToReturn=_sellerMoney-_price;
+
+        }
+      bool sent = payable(msg.sender).send(_amountToReturn);
+     require(sent, "send failed");
     }
 //fonction de compare string
     function compareStrings(string memory a, string memory b) public pure returns (bool) {
